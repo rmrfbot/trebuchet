@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-obsidian: #070a10;
+  --color-panel: #0f1623;
+  --color-cyanaccent: #00f0ff;
+  --color-amberaccent: #ffb800;
+  --color-emeraldaccent: #10b981;
+  --color-roseaccent: #f43f5e;
+  --font-sans: Inter, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}

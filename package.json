@@ -3,11 +3,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "npm run build:css",
+    "build:css": "tailwindcss -i ./src/tailwind.css -o ./public/styles.css --minify",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "predev": "npm run build",
+    "predeploy": "npm run build",
     "test": "node --test"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3",
     "wrangler": "^4.0.0"
   }
 }
