@@ -1,0 +1,11 @@
+name = "trebuchet"
+main = "src/worker.js"
+compatibility_date = "2026-10-26"
+
+[ai]
+binding = "AI"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]

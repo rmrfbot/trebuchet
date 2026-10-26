@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FUSEE-DRIVE 3D // AI Digital Twin — Tyler Lacy (PHYSH 2425)</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js r128 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            obsidian: '#070a10',
+            panel: '#0f1623',
+            cyanaccent: '#00f0ff',
+            amberaccent: '#ffb800',
+            emeraldaccent: '#10b981',
+            roseaccent: '#f43f5e'
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #070a10;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+    }
+
+    #canvas-container {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      cursor: grab;
+    }
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+
+    .glass-hud {
+      background: rgba(11, 16, 27, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(51, 65, 85, 0.65);
+      box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.7);
+    }
+
+    .glass-prompt {
+      background: rgba(10, 15, 25, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 240, 255, 0.38);
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.14), 0 16px 40px rgba(0, 0, 0, 0.8);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #1e293b;
+      height: 5px;
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      background: #00f0ff;
+      border: 2px solid #070a10;
+      box-shadow: 0 0 8px rgba(0, 240, 255, 0.9);
+      cursor: pointer;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.9); }
+    }
+    .pulse-live {
+      animation: pulse-dot 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden">
+
+  <!-- =========================================================================
+       1. FULL-VIEWPORT 3D DIGITAL TWIN CANVAS (THREE.JS)
+       ========================================================================= -->
+  <div id="canvas-container"></div>
+
+  <!-- 3D Floating Counterweight Label (Projected from 3D world coords) -->
+  <div id="weight-3d-badge" class="fixed z-10 pointer-events-none px-2 py-0.5 rounded bg-obsidian/90 border border-amberaccent/60 text-amberaccent font-mono text-[11px] font-bold shadow-lg transition-opacity duration-150" style="left: -200px; top: -200px;">
+    350 g
+  </div>
+
+  <!-- =========================================================================
+       2. MINIMALIST TOP BAR: IDENTITY, CAMERA PRESETS & QUICK MODALS
+       ========================================================================= -->
+  <header class="fixed top-0 left-0 right-0 z-20 p-3 sm:px-6 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+    <!-- Left Identity Pill -->
+    <div class="glass-hud rounded-xl px-3.5 py-2 flex items-center gap-3 pointer-events-auto">
+      <div class="w-8 h-8 rounded-lg bg-cyanaccent/15 border border-cyanaccent/40 flex items-center justify-center text-cyanaccent shrink-0">
+        <i class="fa-solid fa-compass-drafting text-sm"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-display font-bold text-xs sm:text-sm tracking-wide text-white">FUSEE-DRIVE <span class="text-cyanaccent">3D</span></span>
+          <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emeraldaccent/15 text-emeraldaccent border border-emeraldaccent/30 flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emeraldaccent pulse-live"></span> 59.66 FPS TWIN
+          </span>
+        </div>
+        <div class="text-[10px] font-mono text-slate-400">
+          TYLER LACY <span class="text-slate-600">|</span> PHYSH 2425 <span class="text-slate-600">|</span> DR. DARIO MARTINEZ
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Camera View Pills -->
+    <div class="glass-hud rounded-xl p-1 hidden md:flex items-center gap-1 pointer-events-auto font-mono text-[11px]">
+      <button onclick="setCameraPreset('iso')" id="cam-iso" class="px-2.5 py-1 rounded-lg bg-cyanaccent/20 text-cyanaccent border border-cyanaccent/40 transition">
+        <i class="fa-solid fa-cube mr-1"></i>Iso View
+      </button>
+      <button onclick="setCameraPreset('spindle')" id="cam-spindle" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white transition">
+        <i class="fa-solid fa-tornado mr-1"></i>Spindle Close-Up
+      </button>
+      <button onclick="setCameraPreset('side')" id="cam-side" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white transition">
+        <i class="fa-solid fa-arrows-up-down mr-1"></i>Drop Tower
+      </button>
+      <button onclick="setCameraPreset('front')" id="cam-front" class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white transition">
+        <i class="fa-solid fa-fan mr-1"></i>Double-V Arm
+      </button>
+    </div>
+
+    <!-- Right Action Buttons: Manual Sliders Drawer, 350g Test Video, Cloudflare Code -->
+    <div class="flex items-center gap-2 pointer-events-auto font-mono text-xs">
+      <button onclick="toggleSlidersDrawer()" id="btn-sliders-drawer" class="glass-hud px-3 py-2 rounded-xl text-slate-200 hover:text-cyanaccent hover:border-cyanaccent/50 transition flex items-center gap-1.5">
+        <i class="fa-solid fa-sliders text-cyanaccent"></i>
+        <span class="hidden sm:inline">Parameters</span>
+      </button>
+      <button onclick="openModal('videoModal')" class="glass-hud px-3 py-2 rounded-xl bg-roseaccent/15 border-roseaccent/40 text-rose-200 hover:bg-roseaccent/25 transition flex items-center gap-1.5">
+        <i class="fa-brands fa-youtube text-roseaccent"></i>
+        <span class="hidden sm:inline">350g Test Video</span>
+      </button>
+      <button onclick="openModal('codeModal')" class="glass-hud px-3 py-2 rounded-xl text-amberaccent hover:border-amberaccent/50 transition flex items-center gap-1.5" title="Cloudflare Workers AI Code">
+        <i class="fa-solid fa-cloud-bolt"></i>
+        <span class="hidden md:inline">Cloudflare AI</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       3. COMPACT LIVE TELEMETRY HUD (LEFT OVERLAY)
+       ========================================================================= -->
+  <aside class="fixed top-20 left-3 sm:left-6 z-20 w-64 sm:w-72 space-y-2.5 pointer-events-none">
+    <div class="glass-hud rounded-2xl p-3.5 pointer-events-auto space-y-3">
+      <!-- Active Config Header -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <span class="text-[10px] font-mono uppercase tracking-wider text-slate-400">LIVE KINOVEA TELEMETRY</span>
+        <span id="hud-profile-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyanaccent/15 text-cyanaccent border border-cyanaccent/30 font-semibold">
+          LINEAR 5.05:1
+        </span>
+      </div>
+
+      <!-- Primary Metrics 2x3 Grid -->
+      <div class="grid grid-cols-2 gap-2 font-mono">
+        <div class="bg-slate-950/70 border border-slate-800/90 rounded-lg p-2">
+          <div class="text-[9px] text-slate-400 uppercase">Drop Mass (m)</div>
+          <div id="hud-mass" class="text-base font-bold text-white">350 <span class="text-[10px] font-normal text-slate-400">g</span></div>
+          <div id="hud-meq" class="text-[9px] text-amberaccent">M_eq ≈ 517 g</div>
+        </div>
+
+        <div class="bg-slate-950/70 border border-slate-800/90 rounded-lg p-2">
+          <div class="text-[9px] text-slate-400 uppercase">Time / Frame</div>
+          <div id="hud-time" class="text-base font-bold text-white">0.000 <span class="text-[10px] font-normal text-slate-400">s</span></div>
+          <div id="hud-frame" class="text-[9px] text-cyanaccent">Frame 0 / 41</div>
+        </div>
+
+        <div class="bg-slate-950/70 border border-slate-800/90 rounded-lg p-2">
+          <div class="text-[9px] text-slate-400 uppercase">Linear Accel (a)</div>
+          <div id="hud-accel" class="text-base font-bold text-emeraldaccent">3.96 <span class="text-[10px] font-normal text-slate-400">m/s²</span></div>
+          <div id="hud-gfrac" class="text-[9px] text-emeraldaccent/80">0.40 g (vs 1.00g FF)</div>
+        </div>
+
+        <div class="bg-slate-950/70 border border-slate-800/90 rounded-lg p-2">
+          <div class="text-[9px] text-slate-400 uppercase">Spindle Radius r(θ)</div>
+          <div id="hud-radius" class="text-base font-bold text-amberaccent">49.0 <span class="text-[10px] font-normal text-slate-400">mm</span></div>
+          <div id="hud-turns" class="text-[9px] text-slate-400">Turn 0.0 / 6.0</div>
+        </div>
+
+        <div class="bg-slate-950/70 border border-slate-800/90 rounded-lg p-2">
+          <div class="text-[9px] text-slate-400 uppercase">Angular Speed (ω)</div>
+          <div id="hud-omega" class="text-base font-bold text-cyanaccent">0 <span class="text-[10px] font-normal text-slate-400">rad/s</span></div>
+          <div id="hud-rpm" class="text-[9px] text-slate-400">0 RPM</div>
+        </div>
+
+        <div class="bg-slate-950/70 border border-slate-800/90 rounded-lg p-2">
+          <div class="text-[9px] text-slate-400 uppercase">Arm Tip Speed</div>
+          <div id="hud-vtip" class="text-base font-bold text-rose-400">0.0 <span class="text-[10px] font-normal text-slate-400">m/s</span></div>
+          <div id="hud-mach" class="text-[9px] text-slate-400">Drag: 0.0%</div>
+        </div>
+      </div>
+
+      <!-- Mini Kinovea Frame Scrubber & Transport -->
+      <div class="pt-1 border-t border-slate-800/90 space-y-2">
+        <input type="range" id="hud-scrubber" min="0" max="1000" value="0" oninput="onScrubProgress(this.value)" class="w-full" />
+        <div class="flex items-center justify-between gap-1 font-mono text-[11px]">
+          <div class="flex items-center gap-1">
+            <button onclick="resetDrop()" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Re-spool to Top">
+              <i class="fa-solid fa-rotate-left"></i>
+            </button>
+            <button onclick="stepFrame(-1)" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyanaccent transition" title="-1 Kinovea Frame (-16.8ms)">
+              -1F
+            </button>
+            <button onclick="togglePlayDrop()" id="btn-play-pause" class="px-3 py-1 rounded bg-cyanaccent hover:bg-cyan-300 text-obsidian font-bold transition flex items-center gap-1.5">
+              <i class="fa-solid fa-play" id="icon-play-pause"></i>
+              <span id="text-play-pause">DROP</span>
+            </button>
+            <button onclick="stepFrame(1)" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyanaccent transition" title="+1 Kinovea Frame (+16.8ms)">
+              +1F
+            </button>
+          </div>
+
+          <select id="speed-select" onchange="setPlaybackSpeed(this.value)" class="bg-slate-900 border border-slate-700 rounded px-1.5 py-1 text-[10px] text-slate-200 focus:outline-none">
+            <option value="0.15">0.15x</option>
+            <option value="0.25" selected>0.25x Slow</option>
+            <option value="0.5">0.50x</option>
+            <option value="1.0">1.00x Real</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- =========================================================================
+       4. COLLAPSIBLE MANUAL SLIDERS POPOVER (RIGHT SIDE)
+       ========================================================================= -->
+  <aside id="sliders-drawer" class="fixed top-20 right-3 sm:right-6 z-20 w-72 hidden">
+    <div class="glass-hud rounded-2xl p-4 space-y-3 font-mono text-xs">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+        <span class="text-cyanaccent font-bold uppercase text-[11px]"><i class="fa-solid fa-sliders mr-1.5"></i>Manual Variable Override</span>
+        <button onclick="toggleSlidersDrawer()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div>
+        <div class="flex justify-between text-[11px] mb-1">
+          <span class="text-slate-400">Spindle Profile:</span>
+          <span id="lbl-profile" class="text-cyanaccent font-bold">Linear</span>
+        </div>
+        <div class="grid grid-cols-3 gap-1">
+          <button onclick="applyManualChange({spindle_profile:'linear'})" id="btn-prof-linear" class="py-1 rounded bg-cyanaccent text-obsidian font-bold text-[10px]">Linear</button>
+          <button onclick="applyManualChange({spindle_profile:'parabolic'})" id="btn-prof-parabolic" class="py-1 rounded bg-slate-800 text-slate-300 text-[10px]">Parabolic</button>
+          <button onclick="applyManualChange({spindle_profile:'exponential'})" id="btn-prof-exponential" class="py-1 rounded bg-slate-800 text-slate-300 text-[10px]">Expon.</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex justify-between text-[11px] mb-1">
+          <span class="text-slate-400">Counterweight Mass:</span>
+          <span id="lbl-mass" class="text-white font-bold">350 g</span>
+        </div>
+        <input type="range" id="inp-mass" min="25" max="10000" step="25" value="350" oninput="applyManualChange({mass_g: parseFloat(this.value)})" class="w-full" />
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <div class="flex justify-between text-[10px] mb-1">
+            <span class="text-slate-400">r_max:</span>
+            <span id="lbl-rmax" class="text-amberaccent">49.0 mm</span>
+          </div>
+          <input type="range" id="inp-rmax" min="25" max="85" step="0.5" value="49" oninput="applyManualChange({r_max_mm: parseFloat(this.value)})" class="w-full" />
+        </div>
+        <div>
+          <div class="flex justify-between text-[10px] mb-1">
+            <span class="text-slate-400">r_min:</span>
+            <span id="lbl-rmin" class="text-emeraldaccent">9.7 mm</span>
+          </div>
+          <input type="range" id="inp-rmin" min="4" max="24" step="0.1" value="9.7" oninput="applyManualChange({r_min_mm: parseFloat(this.value)})" class="w-full" />
+        </div>
+      </div>
+
+      <div>
+        <div class="flex justify-between text-[11px] mb-1">
+          <span class="text-slate-400">Double-V Arm Length:</span>
+          <span id="lbl-arm" class="text-white font-bold">140.5 mm</span>
+        </div>
+        <input type="range" id="inp-arm" min="90" max="450" step="1" value="140.5" oninput="applyManualChange({arm_length_mm: parseFloat(this.value)})" class="w-full" />
+      </div>
+
+      <div>
+        <div class="flex justify-between text-[11px] mb-1">
+          <span class="text-slate-400">Cord Drop Height (h):</span>
+          <span id="lbl-height" class="text-white font-bold">920.8 mm</span>
+        </div>
+        <input type="range" id="inp-height" min="400" max="1500" step="5" value="920.8" oninput="applyManualChange({drop_height_mm: parseFloat(this.value)})" class="w-full" />
+      </div>
+    </div>
+  </aside>
+
+  <!-- =========================================================================
+       5. SINGLE AI COMMAND & VARIABLE CONTROLLER BAR (BOTTOM CENTER)
+       ========================================================================= -->
+  <section class="fixed bottom-4 left-1/2 -translate-x-1/2 z-20 w-[95vw] max-w-3xl pointer-events-none space-y-2">
+    
+    <!-- AI Physics Insight Toast Pill -->
+    <div id="ai-insight-banner" class="glass-hud rounded-xl px-3.5 py-2 mx-auto flex items-center justify-between gap-3 pointer-events-auto border-l-4 border-l-cyanaccent">
+      <div class="flex items-center gap-2.5 text-xs">
+        <i id="ai-status-icon" class="fa-solid fa-sparkles text-cyanaccent shrink-0"></i>
+        <span id="ai-insight-text" class="text-slate-200 leading-snug">
+          <strong class="text-cyanaccent font-mono">350g Baseline Loaded:</strong> Drop time <span class="font-mono text-white">0.682 s</span> (<span class="font-mono text-emeraldaccent">a = 3.96±0.27 m/s²</span>, <span class="font-mono">0.40g</span>). Double-V swingarm hits <span class="font-mono text-cyanaccent">278 rad/s</span> (<span class="font-mono">19.5 m/s</span> tip speed).
+        </span>
+      </div>
+      <span id="ai-engine-tag" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 shrink-0 hidden sm:inline">
+        AI READY
+      </span>
+    </div>
+
+    <!-- Main Single AI Prompt Bar -->
+    <form onsubmit="handleAiPromptSubmit(event)" class="glass-prompt rounded-2xl p-2 flex items-center gap-2 pointer-events-auto">
+      <div class="pl-3 pr-1 text-cyanaccent flex items-center">
+        <i class="fa-solid fa-wand-magic-sparkles text-base"></i>
+      </div>
+      <input
+        type="text"
+        id="ai-prompt-input"
+        placeholder="Prompt physics changes (e.g., 'Switch to a parabolic spindle with a 100g weight' or 'Test 10kg transonic setup')..."
+        class="flex-1 bg-transparent text-xs sm:text-sm text-white placeholder-slate-400 focus:outline-none font-mono"
+        autocomplete="off"
+      />
+      <button
+        type="submit"
+        id="ai-submit-btn"
+        class="px-4 py-2.5 rounded-xl bg-cyanaccent hover:bg-cyan-300 text-obsidian font-mono font-bold text-xs transition flex items-center gap-2 shrink-0 shadow-[0_0_15px_rgba(0,240,255,0.4)] cursor-pointer"
+      >
+        <span>Simulate</span>
+        <i class="fa-solid fa-bolt"></i>
+      </button>
+    </form>
+
+    <!-- One-Tap Preset Prompt Pills -->
+    <div class="flex items-center justify-center flex-wrap gap-1.5 pointer-events-auto">
+      <button onclick="runQuickPrompt('Run 50g baseline trial in 0.25x slow motion')" class="glass-hud px-2.5 py-1 rounded-full text-[11px] font-mono text-slate-300 hover:text-cyanaccent hover:border-cyanaccent/50 transition">
+        50g Baseline (0.10g)
+      </button>
+      <button onclick="runQuickPrompt('Run 100g baseline trial in 0.25x slow motion')" class="glass-hud px-2.5 py-1 rounded-full text-[11px] font-mono text-slate-300 hover:text-cyanaccent hover:border-cyanaccent/50 transition">
+        100g Baseline (0.19g)
+      </button>
+      <button onclick="runQuickPrompt('Run 350g baseline trial in 0.25x slow motion')" class="glass-hud px-2.5 py-1 rounded-full text-[11px] font-mono text-cyanaccent border-cyanaccent/40 hover:bg-cyanaccent/10 transition">
+        350g Baseline (0.40g)
+      </button>
+      <button onclick="runQuickPrompt('Use a parabolic spindle profile with 1000g counterweight and r_min 7mm')" class="glass-hud px-2.5 py-1 rounded-full text-[11px] font-mono text-amberaccent hover:border-amberaccent/50 transition">
+        Parabolic Spindle + 1kg
+      </button>
+      <button onclick="runQuickPrompt('Scale to 10kg counterweight, exponential spindle r_max 75mm r_min 5mm, and 380mm double-V arm at 1x speed')" class="glass-hud px-2.5 py-1 rounded-full text-[11px] font-mono text-emeraldaccent hover:border-emeraldaccent/50 transition">
+        Transonic Scale (10kg)
+      </button>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       6. MODALS: 350G TEST VIDEO & CLOUDFLARE WORKERS AI CODE
+       ========================================================================= -->
+  <!-- Video Modal -->
+  <div id="videoModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-hud rounded-2xl max-w-xl w-full p-6 border border-cyanaccent/40 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <i class="fa-brands fa-youtube text-roseaccent text-xl"></i>
+          <div>
+            <h3 class="font-display font-bold text-white text-base">Experimental Kinovea Video &amp; References</h3>
+            <p class="text-xs font-mono text-slate-400">Tyler Lacy // PHYSH 2425 Lone Star College–CyFair</p>
+          </div>
+        </div>
+        <button onclick="closeModal('videoModal')" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-4 rounded-xl bg-slate-900/90 border border-roseaccent/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div class="space-y-1">
+          <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-roseaccent/20 text-rose-300">350G DROP FOOTAGE [REF 5]</span>
+          <h4 class="font-display font-bold text-white text-sm mt-1">T. Lacy — "trebuchet test 1 through 5 350g"</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Filmed on OnePlus 12 at 59.66 fps with pocket-clicker double-click sync cues. Mean drop time <span class="font-mono text-white">0.682 s</span> (<span class="font-mono text-emeraldaccent">a = 3.96 ± 0.27 m/s²</span>) across 6 fusee turns.
+          </p>
+        </div>
+        <a href="https://youtube.com/shorts/ClgbninkTEg" target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 rounded-xl bg-roseaccent hover:bg-rose-500 text-white font-mono font-bold text-xs shrink-0 flex items-center gap-2">
+          <span>Watch Short</span> <i class="fa-solid fa-arrow-up-right-from-square"></i>
+        </a>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <a href="https://www.youtube.com/watch?v=Co57SfcT-ho" target="_blank" rel="noopener noreferrer" class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-cyanaccent/50 transition block">
+          <div class="text-[10px] font-mono text-cyanaccent">[REF 1] TOM STANTON</div>
+          <div class="font-bold text-white mt-0.5">Supersonic Trebuchet</div>
+          <div class="text-[11px] text-slate-400 mt-1">Gravity-powered rotational trebuchet &amp; aerodynamic drag limits.</div>
+        </a>
+        <a href="https://www.youtube.com/watch?v=gdXOS-BOBus" target="_blank" rel="noopener noreferrer" class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-amberaccent/50 transition block">
+          <div class="text-[10px] font-mono text-amberaccent">[REF 2] ENNSYE</div>
+          <div class="font-bold text-white mt-0.5">How to Build a Supersonic Trebuchet</div>
+          <div class="text-[11px] text-slate-400 mt-1">Variable-radius fusee spool dynamics &amp; high-speed release.</div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cloudflare Workers AI Deployment Modal -->
+  <div id="codeModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-hud rounded-2xl max-w-2xl w-full p-6 border border-amberaccent/40 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <i class="fa-solid fa-cloud-bolt text-amberaccent text-xl"></i>
+          <div>
+            <h3 class="font-display font-bold text-white text-base">Cloudflare Workers AI Backend</h3>
+            <p class="text-xs font-mono text-slate-400">Implemented in <code class="text-cyanaccent">src/worker.js</code></p>
+          </div>
+        </div>
+        <button onclick="closeModal('codeModal')" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <pre id="cf-worker-code" class="bg-obsidian p-3.5 rounded-xl border border-slate-800 text-[11px] font-mono text-slate-300 overflow-x-auto max-h-72 leading-relaxed"><code>POST /api/parse
+Content-Type: application/json
+
+{
+  "prompt": "Try a 100g counterweight with a parabolic spindle",
+  "currentState": {
+    "mass_g": 350,
+    "spindle_profile": "linear",
+    "r_max_mm": 49,
+    "r_min_mm": 9.7,
+    "arm_length_mm": 140.462,
+    "drop_height_mm": 920.75,
+    "playback_speed": 0.25
+  }
+}
+
+The Worker calls Cloudflare Workers AI using its server-side AI binding.</code></pre>
+
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-mono text-slate-400">AI binding is configured in <code class="text-cyanaccent">wrangler.toml</code></span>
+        <button onclick="copyCloudflareCode()" id="btn-copy-cf" class="px-4 py-2 rounded-xl bg-amberaccent text-obsidian font-mono font-bold text-xs hover:bg-amber-300 transition">
+          <i class="fa-regular fa-copy mr-1"></i> Copy API Example
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       7. APPLICATION LOGIC: THREE.JS DIGITAL TWIN, PHYSICS ENGINE & AI PARSER
+       ========================================================================= -->
+  <script>
+    // -------------------------------------------------------------------------
+    // A. SIMULATION STATE & EMPIRICAL CALIBRATION (TYLER LACY'S OCT 2026 DATA)
+    // -------------------------------------------------------------------------
+    const simState = {
+      // User-controllable physical variables
+      mass_g: 350,                 // Counterweight mass (g): 50g, 100g, 350g baselines
+      spindle_profile: 'linear',   // 'linear' (frustum), 'parabolic', 'exponential'
+      r_max_mm: 49.0,              // Fusee start radius (mm)
+      r_min_mm: 9.7,               // Fusee end radius (mm) -> 5.05:1 ratio
+      arm_length_mm: 140.462,      // Double-V diamond swingarm total length (mm)
+      drop_height_mm: 920.75,      // 36.25 in midpoint unspooled cord drop (mm)
+      turns: 6,                    // 6 helical turns = 12 * pi radians
+
+      // Playback & time state
+      playback_speed: 0.25,        // 0.25x Kinovea slow-motion default
+      isPlaying: true,
+      progress: 0,                 // 0.0 to 1.0 (fraction of 6 turns unspooled)
+      elapsed_s: 0,
+
+      // Computed physics quantities for current setup
+      drop_time_s: 0.682,
+      accel_ms2: 3.96,
+      M_eq_g: 517,
+      omega_peak: 278,
+      v_tip_peak: 19.5
+    };
+
+    // Recompute exact physical kinematics from current simState
+    function recalculatePhysics() {
+      const m = simState.mass_g;
+      const h_m = simState.drop_height_mm / 1000;
+      const g = 9.81;
+
+      // Base equivalent inertia mass M_eq from Tyler's Table 1 (50g->457g, 100g->427g, 350g->517g)
+      // Scales with arm length squared (I_arm ∝ L^2) and inverse effective spindle radius squared
+      const armScale = Math.pow(simState.arm_length_mm / 140.462, 1.85);
+      const rAvgRatio = 29.35 / (0.5 * (simState.r_max_mm + simState.r_min_mm));
+
+      // Profile efficiency factor: parabolic & exponential spend more turns near high-speed small radius
+      let profileInertiaFactor = 1.0;
+      if (simState.spindle_profile === 'parabolic') profileInertiaFactor = 0.88;
+      if (simState.spindle_profile === 'exponential') profileInertiaFactor = 0.84;
+
+      // Exact match to Tyler's empirical data at default geometry (r_max=49, r_min=9.7, arm=140.462, h=920.75)
+      let baseMeq = 467;
+      if (Math.abs(m - 50) < 1) baseMeq = 457.2;
+      else if (Math.abs(m - 100) < 1) baseMeq = 427.4;
+      else if (Math.abs(m - 350) < 1) baseMeq = 517.1;
+      else {
+        // Smooth interpolation/extrapolation including slight aero drag growth at higher speeds
+        baseMeq = 445 + 72 * Math.min(2.2, Math.pow(m / 350, 0.35));
+      }
+
+      const effective_Meq_g = baseMeq * armScale * Math.pow(rAvgRatio, 1.2) * profileInertiaFactor;
+      simState.M_eq_g = effective_Meq_g;
+
+      // From Newton's 2nd Law lumped model: m(g - a) = M_eq * a  =>  a = g * m / (m + M_eq)
+      const a = (g * m) / (m + effective_Meq_g);
+      simState.accel_ms2 = a;
+
+      // Drop time t = sqrt(2h / a)
+      simState.drop_time_s = Math.sqrt((2 * h_m) / a);
+
+      // Final linear cord speed v_f = 2h / t
+      const v_f = (2 * h_m) / simState.drop_time_s;
+
+      // Profile multiplier on final angular speed omega_f = v_f / r_min
+      let profileSpeedBoost = 1.0;
+      if (simState.spindle_profile === 'parabolic') profileSpeedBoost = 1.14;
+      if (simState.spindle_profile === 'exponential') profileSpeedBoost = 1.22;
+
+      const r_min_m = simState.r_min_mm / 1000;
+      simState.omega_peak = (v_f / r_min_m) * profileSpeedBoost;
+      simState.v_tip_peak = simState.omega_peak * ((simState.arm_length_mm * 0.5) / 1000);
+    }
+
+    // Helper: Active Fusee Radius r(u) in mm for turn fraction u in [0, 1]
+    function getSpindleRadiusMM(u) {
+      const rMax = simState.r_max_mm;
+      const rMin = simState.r_min_mm;
+      if (simState.spindle_profile === 'parabolic') {
+        return rMin + (rMax - rMin) * Math.pow(1 - u, 2.1);
+      }
+      if (simState.spindle_profile === 'exponential') {
+        return rMax * Math.pow(rMin / rMax, u);
+      }
+      // Default linear frustum cone
+      return rMax - (rMax - rMin) * u;
+    }
+
+    // -------------------------------------------------------------------------
+    // B. THREE.JS 3D SCENE, DOUBLE-V SWINGARM & DYNAMIC FUSEE DRUM
+    // -------------------------------------------------------------------------
+    let scene, camera, renderer;
+    let rotatingAssemblyGroup; // Contains Axle, Double-V Swingarm, Fusee Drum, Helical Groove
+    let fuseeMesh, grooveLineMesh, doubleVArmGroup;
+    let activeCordLine, fallingWeightGroup, dropTowerGroup;
+    let tipTrailLine1, tipTrailLine2;
+    let tipTrailPositions1 = [], tipTrailPositions2 = [];
+    const MAX_TRAIL_PTS = 55;
+
+    // Custom Smooth Spherical Orbit Camera Controller
+    const camOrbit = {
+      theta: 0.68,       // Horizontal azimuth angle (rad)
+      phi: 1.18,         // Vertical polar angle (rad)
+      radius: 3.1,       // Distance from target
+      target: new THREE.Vector3(0.15, 0.85, 0),
+      targetTheta: 0.68,
+      targetPhi: 1.18,
+      targetRadius: 3.1,
+      targetLookAt: new THREE.Vector3(0.15, 0.85, 0),
+      isDragging: false,
+      prevX: 0,
+      prevY: 0
+    };
+
+    // Scale conversion: 1 Three.js world unit = 100 mm
+    const MM_TO_UNITS = 0.01;
+    const AXLE_Y = 1.38; // Height of main horizontal axle above baseplate
+    const PULLEY_Z = -0.95; // Rear guide pulley Z offset
+    const PULLEY_Y = 1.48;  // Rear guide pulley Y height
+
+    function createDynamicLineGeometry(maxPoints) {
+      const geometry = new THREE.BufferGeometry();
+      const positions = new THREE.BufferAttribute(new Float32Array(maxPoints * 3), 3);
+      positions.setUsage(THREE.DynamicDrawUsage);
+      geometry.setAttribute('position', positions);
+      geometry.setDrawRange(0, 0);
+      return geometry;
+    }
+
+    function updateLinePoints(line, points) {
+      const positions = line.geometry.attributes.position;
+      points.forEach((point, index) => positions.setXYZ(index, point.x, point.y, point.z));
+      positions.needsUpdate = true;
+      line.geometry.setDrawRange(0, points.length);
+      line.geometry.computeBoundingSphere();
+    }
+
+    function initThreeScene() {
+      const container = document.getElementById('canvas-container');
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x070a10);
+      scene.fog = new THREE.FogExp2(0x070a10, 0.08);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.05, 50);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // Lighting
+      const ambient = new THREE.AmbientLight(0xdbeafe, 0.65);
+      scene.add(ambient);
+
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.15);
+      keyLight.position.set(3.5, 5.0, 4.0);
+      keyLight.castShadow = true;
+      scene.add(keyLight);
+
+      const cyanRim = new THREE.PointLight(0x00f0ff, 1.4, 8);
+      cyanRim.position.set(-2.0, 2.2, 1.5);
+      scene.add(cyanRim);
+
+      const amberRim = new THREE.PointLight(0xffb800, 1.0, 7);
+      amberRim.position.set(1.8, 0.8, -2.0);
+      scene.add(amberRim);
+
+      // Laboratory Floor Grid
+      const grid = new THREE.GridHelper(12, 24, 0x00f0ff, 0x1e293b);
+      grid.position.y = -0.06;
+      grid.material.opacity = 0.35;
+      grid.material.transparent = true;
+      scene.add(grid);
+
+      // Build Static Onshape Support Frame (Baseplate, 2 Main Arches, Rear Pulley Arch, Drop Ruler)
+      buildStaticTrebuchetFrame();
+
+      // Create Rotating Axle Assembly Group (Positioned at y = AXLE_Y, z = 0)
+      rotatingAssemblyGroup = new THREE.Group();
+      rotatingAssemblyGroup.position.set(0, AXLE_Y, 0);
+      scene.add(rotatingAssemblyGroup);
+
+      // Stainless Steel / CF Main Horizontal Shaft (along X axis)
+      const shaftGeo = new THREE.CylinderGeometry(0.042, 0.042, 1.65, 24);
+      shaftGeo.rotateZ(Math.PI / 2);
+      const shaftMat = new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        metalness: 0.85,
+        roughness: 0.2
+      });
+      const shaftMesh = new THREE.Mesh(shaftGeo, shaftMat);
+      rotatingAssemblyGroup.add(shaftMesh);
+
+      // Build Dynamic Components (Fusee Drum, Double-V Arm, Cord, Falling Weight, Tip Trails)
+      rebuildDynamicGeometry();
+
+      // Mouse & Touch Orbit Controls
+      setupOrbitEvents(renderer.domElement);
+    }
+
+    function buildStaticTrebuchetFrame() {
+      const frameGroup = new THREE.Group();
+
+      // Materials matching Onshape CAD & PA612-CF15 Carbon-Fiber Nylon print
+      const baseMat = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        metalness: 0.25,
+        roughness: 0.45,
+        transparent: true,
+        opacity: 0.85
+      });
+      const archMat = new THREE.MeshStandardMaterial({
+        color: 0x94a3b8,
+        metalness: 0.55,
+        roughness: 0.35
+      });
+      const collarMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        metalness: 0.4,
+        roughness: 0.6
+      });
+
+      // 1. Baseplate (Sitting at y = 0)
+      const baseGeo = new THREE.BoxGeometry(2.1, 0.08, 2.0);
+      baseGeo.translate(0, 0, -0.2);
+      const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+      baseMesh.receiveShadow = true;
+      frameGroup.add(baseMesh);
+
+      // 2. Left & Right Curved Support Arches (x = -0.72 and x = +0.72)
+      [-0.72, 0.72].forEach(xPos => {
+        const curve = new THREE.CatmullRomCurve3([
+          new THREE.Vector3(xPos, 0.04, 0.58),
+          new THREE.Vector3(xPos, 0.85, 0.38),
+          new THREE.Vector3(xPos, AXLE_Y, 0.0),
+          new THREE.Vector3(xPos, 0.85, -0.38),
+          new THREE.Vector3(xPos, 0.04, -0.58)
+        ]);
+        const archGeo = new THREE.TubeGeometry(curve, 36, 0.075, 16, false);
+        const archMesh = new THREE.Mesh(archGeo, archMat);
+        archMesh.castShadow = true;
+        frameGroup.add(archMesh);
+
+        // 3D-printed dark PA612-CF15 base foot collars
+        [0.58, -0.58].forEach(zFoot => {
+          const collarGeo = new THREE.CylinderGeometry(0.12, 0.14, 0.1, 20);
+          const collar = new THREE.Mesh(collarGeo, collarMat);
+          collar.position.set(xPos, 0.06, zFoot);
+          frameGroup.add(collar);
+        });
+
+        // Bearing housing block at apex
+        const housingGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.14, 24);
+        housingGeo.rotateZ(Math.PI / 2);
+        const housing = new THREE.Mesh(housingGeo, collarMat);
+        housing.position.set(xPos, AXLE_Y, 0);
+        frameGroup.add(housing);
+      });
+
+      // 3. Rear Guide Pulley Support Arch & Grooved Pulley Wheel (at x = 0.25, z = PULLEY_Z)
+      const pulleyX = 0.25;
+      const rearCurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(pulleyX - 0.25, 0.04, PULLEY_Z - 0.15),
+        new THREE.Vector3(pulleyX - 0.12, 0.9, PULLEY_Z - 0.05),
+        new THREE.Vector3(pulleyX, PULLEY_Y, PULLEY_Z),
+        new THREE.Vector3(pulleyX + 0.12, 0.9, PULLEY_Z - 0.05),
+        new THREE.Vector3(pulleyX + 0.25, 0.04, PULLEY_Z - 0.15)
+      ]);
+      const rearArchGeo = new THREE.TubeGeometry(rearCurve, 32, 0.06, 14, false);
+      const rearArchMesh = new THREE.Mesh(rearArchGeo, archMat);
+      frameGroup.add(rearArchMesh);
+
+      // Grooved Guide Pulley Wheel
+      const pulleyGeo = new THREE.CylinderGeometry(0.14, 0.14, 0.06, 28);
+      pulleyGeo.rotateZ(Math.PI / 2);
+      const pulleyMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.4 });
+      const pulleyWheel = new THREE.Mesh(pulleyGeo, pulleyMat);
+      pulleyWheel.position.set(pulleyX, PULLEY_Y, PULLEY_Z);
+      frameGroup.add(pulleyWheel);
+
+      scene.add(frameGroup);
+    }
+
+    // Build / Rebuild the Double-V Swingarm, Fusee Spindle, Helical Groove, and Drop Scale
+    function rebuildDynamicGeometry() {
+      // 1. Remove old Fusee Drum, Groove, and Double-V Swingarm from rotatingAssemblyGroup
+      if (fuseeMesh) rotatingAssemblyGroup.remove(fuseeMesh);
+      if (grooveLineMesh) rotatingAssemblyGroup.remove(grooveLineMesh);
+      if (doubleVArmGroup) rotatingAssemblyGroup.remove(doubleVArmGroup);
+
+      // -----------------------------------------------------------------------
+      // A. DYNAMIC 3D FUSEE DRUM (SPINDLE) & 6-TURN HELICAL GROOVE
+      // -----------------------------------------------------------------------
+      const drumLength = 0.42; // 42 mm wide along axle (+x side of arm)
+      const drumXStart = 0.08; // Large radius end near center
+      const lathePoints = [];
+      const segments = 48;
+
+      for (let i = 0; i <= segments; i++) {
+        const u = i / segments;
+        const r_units = getSpindleRadiusMM(u) * MM_TO_UNITS;
+        const y_axial = u * drumLength;
+        lathePoints.push(new THREE.Vector2(r_units, y_axial));
+      }
+
+      const latheGeo = new THREE.LatheGeometry(lathePoints, 40);
+      // Rotate LatheGeometry so its axis of revolution aligns with the X-axis
+      latheGeo.rotateZ(-Math.PI / 2);
+      latheGeo.translate(drumXStart, 0, 0);
+
+      const fuseeMat = new THREE.MeshStandardMaterial({
+        color: 0x1e293b,
+        metalness: 0.45,
+        roughness: 0.35
+      });
+      fuseeMesh = new THREE.Mesh(latheGeo, fuseeMat);
+      fuseeMesh.castShadow = true;
+      rotatingAssemblyGroup.add(fuseeMesh);
+
+      // 6-Turn Helical Groove Wound Around the Fusee Drum
+      const spiralPts = [];
+      const spiralSteps = 240;
+      for (let i = 0; i <= spiralSteps; i++) {
+        const u = i / spiralSteps;
+        const theta = u * simState.turns * Math.PI * 2;
+        const r_units = (getSpindleRadiusMM(u) * MM_TO_UNITS) + 0.004;
+        const x = drumXStart + u * drumLength;
+        const y = r_units * Math.cos(theta);
+        const z = r_units * Math.sin(theta);
+        spiralPts.push(new THREE.Vector3(x, y, z));
+      }
+      const spiralGeo = new THREE.BufferGeometry().setFromPoints(spiralPts);
+      const spiralMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.65 });
+      grooveLineMesh = new THREE.Line(spiralGeo, spiralMat);
+      rotatingAssemblyGroup.add(grooveLineMesh);
+
+      // -----------------------------------------------------------------------
+      // B. LONG SYMMETRIC DOUBLE V-SHAPE (DIAMOND TRUSS) SWINGARM
+      // -----------------------------------------------------------------------
+      doubleVArmGroup = new THREE.Group();
+      const armX = -0.18; // Positioned on the left side of the axle
+      const halfSpan = (simState.arm_length_mm * 0.5) * MM_TO_UNITS; // Default ~0.702 units
+      const midWidth = Math.max(0.15, halfSpan * 0.23);              // Center diamond width
+      const thick = 0.05;                                            // 5 mm thickness
+
+      // Create 2D Diamond Double-V Shape with 4 internal triangular weight-relief cutouts
+      const diamondShape = new THREE.Shape();
+      diamondShape.moveTo(0, halfSpan);          // Top Tip (+Y)
+      diamondShape.lineTo(midWidth, 0);          // Right Hub (+Z)
+      diamondShape.lineTo(0, -halfSpan);         // Bottom Tip (-Y)
+      diamondShape.lineTo(-midWidth, 0);         // Left Hub (-Z)
+      diamondShape.closePath();
+
+      // Add triangular truss cutouts inside both V-halves (matching Onshape Fig. 1)
+      const addCutout = (y1, z1, y2, z2, y3, z3) => {
+        const hole = new THREE.Path();
+        hole.moveTo(z1, y1);
+        hole.lineTo(z2, y2);
+        hole.lineTo(z3, y3);
+        hole.closePath();
+        diamondShape.holes.push(hole);
+      };
+
+      // Upper V cutouts
+      addCutout(halfSpan * 0.14, -midWidth * 0.55, halfSpan * 0.14, midWidth * 0.55, halfSpan * 0.44, 0);
+      addCutout(halfSpan * 0.50, -midWidth * 0.32, halfSpan * 0.50, midWidth * 0.32, halfSpan * 0.80, 0);
+      // Lower V cutouts
+      addCutout(-halfSpan * 0.14, -midWidth * 0.55, -halfSpan * 0.14, midWidth * 0.55, -halfSpan * 0.44, 0);
+      addCutout(-halfSpan * 0.50, -midWidth * 0.32, -halfSpan * 0.50, midWidth * 0.32, -halfSpan * 0.80, 0);
+
+      const extrudeSettings = {
+        depth: thick,
+        bevelEnabled: true,
+        bevelSegments: 2,
+        steps: 1,
+        bevelSize: 0.008,
+        bevelThickness: 0.008
+      };
+
+      const armGeo = new THREE.ExtrudeGeometry(diamondShape, extrudeSettings);
+      // Orient so the diamond lies in the Y-Z plane and extrudes along X
+      armGeo.rotateY(Math.PI / 2);
+      armGeo.translate(armX - thick / 2, 0, 0);
+
+      const armMat = new THREE.MeshStandardMaterial({
+        color: 0x10b981,
+        metalness: 0.4,
+        roughness: 0.3
+      });
+      const armMesh = new THREE.Mesh(armGeo, armMat);
+      armMesh.castShadow = true;
+      doubleVArmGroup.add(armMesh);
+
+      // Glowing Cyan Tip Markers at Both Ends of the Double-V Swingarm
+      const tipGeo = new THREE.SphereGeometry(0.032, 16, 16);
+      const tipMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+      const topTip = new THREE.Mesh(tipGeo, tipMat);
+      topTip.position.set(armX, halfSpan, 0);
+      const botTip = new THREE.Mesh(tipGeo, tipMat);
+      botTip.position.set(armX, -halfSpan, 0);
+      doubleVArmGroup.add(topTip, botTip);
+
+      rotatingAssemblyGroup.add(doubleVArmGroup);
+
+      // -----------------------------------------------------------------------
+      // C. DYNAMIC DYNEEMA CORD, FALLING COUNTERWEIGHT & DROP SCALE
+      // -----------------------------------------------------------------------
+      if (!activeCordLine) {
+        const cordMat = new THREE.LineBasicMaterial({ color: 0xffb800, linewidth: 2.5 });
+        const cordGeo = createDynamicLineGeometry(3);
+        activeCordLine = new THREE.Line(cordGeo, cordMat);
+        scene.add(activeCordLine);
+      }
+
+      if (!fallingWeightGroup) {
+        fallingWeightGroup = new THREE.Group();
+        const blockGeo = new THREE.BoxGeometry(0.24, 0.24, 0.24);
+        const blockMat = new THREE.MeshStandardMaterial({
+          color: 0xffb800,
+          metalness: 0.6,
+          roughness: 0.25
+        });
+        const blockMesh = new THREE.Mesh(blockGeo, blockMat);
+        blockMesh.name = 'weightCube';
+        fallingWeightGroup.add(blockMesh);
+        scene.add(fallingWeightGroup);
+      }
+
+      // Scale counterweight cube size slightly with mass
+      const massScale = Math.max(0.65, Math.min(2.2, Math.pow(simState.mass_g / 350, 0.22)));
+      fallingWeightGroup.scale.set(massScale, massScale, massScale);
+
+      // Initialize / Reset Tip Motion Trails
+      if (!tipTrailLine1) {
+        const trailGeo1 = createDynamicLineGeometry(MAX_TRAIL_PTS);
+        const trailMat1 = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.75 });
+        tipTrailLine1 = new THREE.Line(trailGeo1, trailMat1);
+        scene.add(tipTrailLine1);
+
+        const trailGeo2 = createDynamicLineGeometry(MAX_TRAIL_PTS);
+        const trailMat2 = new THREE.LineBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.45 });
+        tipTrailLine2 = new THREE.Line(trailGeo2, trailMat2);
+        scene.add(tipTrailLine2);
+      }
+      tipTrailPositions1 = [];
+      tipTrailPositions2 = [];
+
+      recalculatePhysics();
+      updateKinematicsAndVisuals();
+    }
+
+    // Update 3D Positions of Rotating Arm, Active Unspooling Cord, Falling Weight & Telemetry HUD
+    function updateKinematicsAndVisuals() {
+      const u = Math.max(0, Math.min(1, simState.progress)); // 0 to 1
+      const T = simState.drop_time_s;
+      const t = u * T;
+      simState.elapsed_s = t;
+
+      // Under constant acceleration a = 2h/T^2, cord unspooled fraction y/h = (t/T)^2 = u^2
+      const dropFrac = u * u;
+      const theta = dropFrac * simState.turns * Math.PI * 2; // 0 to 12*pi rad
+
+      // Rotate the Axle, Fusee Drum & Double-V Swingarm 1:1
+      if (rotatingAssemblyGroup) {
+        rotatingAssemblyGroup.rotation.x = -theta;
+      }
+
+      // Active Fusee Radius & Unspool Point along the Spindle
+      const r_mm = getSpindleRadiusMM(dropFrac);
+      const r_units = r_mm * MM_TO_UNITS;
+      const drumXStart = 0.08;
+      const drumLength = 0.42;
+      const activeSpindleX = drumXStart + dropFrac * drumLength;
+
+      // Top tangent point on the fusee drum at activeSpindleX
+      const cordStart = new THREE.Vector3(activeSpindleX, AXLE_Y + r_units, 0);
+      const pulleyApex = new THREE.Vector3(activeSpindleX, PULLEY_Y + 0.13, PULLEY_Z);
+
+      // Vertical Drop of the Counterweight
+      const visualDropMax = 1.25; // Visual vertical drop range in world units
+      const weightY = (PULLEY_Y - 0.12) - dropFrac * visualDropMax;
+      const weightPos = new THREE.Vector3(activeSpindleX, weightY, PULLEY_Z - 0.14);
+
+      if (fallingWeightGroup) {
+        fallingWeightGroup.position.copy(weightPos);
+      }
+
+      if (activeCordLine) {
+        const pts = [cordStart, pulleyApex, new THREE.Vector3(weightPos.x, weightPos.y + 0.12, weightPos.z)];
+        updateLinePoints(activeCordLine, pts);
+      }
+
+      // Update 3D Tip Motion Trails on Double-V Swingarm
+      const halfSpan = (simState.arm_length_mm * 0.5) * MM_TO_UNITS;
+      const armX = -0.18;
+      const tip1World = new THREE.Vector3(
+        armX,
+        AXLE_Y + halfSpan * Math.cos(-theta),
+        halfSpan * Math.sin(-theta)
+      );
+      const tip2World = new THREE.Vector3(
+        armX,
+        AXLE_Y - halfSpan * Math.cos(-theta),
+        -halfSpan * Math.sin(-theta)
+      );
+
+      if (u === 0) {
+        tipTrailPositions1 = [tip1World.clone()];
+        tipTrailPositions2 = [tip2World.clone()];
+      } else {
+        tipTrailPositions1.push(tip1World.clone());
+        tipTrailPositions2.push(tip2World.clone());
+        if (tipTrailPositions1.length > MAX_TRAIL_PTS) tipTrailPositions1.shift();
+        if (tipTrailPositions2.length > MAX_TRAIL_PTS) tipTrailPositions2.shift();
+      }
+      if (tipTrailLine1) {
+        updateLinePoints(tipTrailLine1, tipTrailPositions1);
+        updateLinePoints(tipTrailLine2, tipTrailPositions2);
+      }
+
+      // Update Live Telemetry HUD Numbers
+      const v_ms = simState.accel_ms2 * t;
+      let profileBoost = 1.0;
+      if (simState.spindle_profile === 'parabolic') profileBoost = 1.0 + 0.14 * dropFrac;
+      if (simState.spindle_profile === 'exponential') profileBoost = 1.0 + 0.22 * dropFrac;
+
+      const omega = (v_ms / (r_mm / 1000)) * profileBoost;
+      const rpm = (omega * 60) / (2 * Math.PI);
+      const v_tip = omega * ((simState.arm_length_mm * 0.5) / 1000);
+
+      // Aero drag percentage (~14% at end of 350g drop per Report Sec. IV)
+      const rho = 1.225, Cd = 1.15, thick_m = 0.005;
+      const R_m = (simState.arm_length_mm * 0.5) / 1000;
+      const tau_drag = 0.25 * rho * Cd * thick_m * omega * omega * Math.pow(R_m, 4);
+      const tau_weight = (simState.mass_g / 1000) * (9.81 - simState.accel_ms2) * (r_mm / 1000);
+      const dragPct = Math.min(99.9, (tau_drag / Math.max(1e-6, tau_weight)) * 100);
+
+      const totalFrames = Math.max(1, Math.round(T * 59.66));
+      const curFrame = Math.round(u * totalFrames);
+
+      const ratioStr = (simState.r_max_mm / simState.r_min_mm).toFixed(2);
+      document.getElementById('hud-profile-badge').textContent =
+        `${simState.spindle_profile.toUpperCase()} ${ratioStr}:1`;
+
+      document.getElementById('hud-mass').innerHTML =
+        simState.mass_g >= 1000
+          ? `${(simState.mass_g / 1000).toFixed(2)} <span class="text-[10px] font-normal text-slate-400">kg</span>`
+          : `${Math.round(simState.mass_g)} <span class="text-[10px] font-normal text-slate-400">g</span>`;
+      document.getElementById('hud-meq').textContent = `M_eq ≈ ${Math.round(simState.M_eq_g)} g`;
+
+      document.getElementById('hud-time').innerHTML = `${t.toFixed(3)} <span class="text-[10px] font-normal text-slate-400">s</span>`;
+      document.getElementById('hud-frame').textContent = `Frame ${curFrame} / ${totalFrames}`;
+
+      document.getElementById('hud-accel').innerHTML = `${simState.accel_ms2.toFixed(2)} <span class="text-[10px] font-normal text-slate-400">m/s²</span>`;
+      document.getElementById('hud-gfrac').textContent = `${(simState.accel_ms2 / 9.81).toFixed(2)} g (vs 1.00g FF)`;
+
+      document.getElementById('hud-radius').innerHTML = `${r_mm.toFixed(1)} <span class="text-[10px] font-normal text-slate-400">mm</span>`;
+      document.getElementById('hud-turns').textContent = `Turn ${(dropFrac * 6).toFixed(1)} / 6.0`;
+
+      document.getElementById('hud-omega').innerHTML = `${Math.round(omega)} <span class="text-[10px] font-normal text-slate-400">rad/s</span>`;
+      document.getElementById('hud-rpm').textContent = `${Math.round(rpm).toLocaleString()} RPM`;
+
+      document.getElementById('hud-vtip').innerHTML = `${v_tip.toFixed(1)} <span class="text-[10px] font-normal text-slate-400">m/s</span>`;
+      const mach = v_tip / 343.0;
+      document.getElementById('hud-mach').textContent =
+        mach >= 0.3 ? `Mach ${mach.toFixed(2)} | Drag ${dragPct.toFixed(0)}%` : `Drag Loss: ${dragPct.toFixed(1)}%`;
+
+      document.getElementById('hud-scrubber').value = Math.round(u * 1000);
+    }
+
+    // Project 3D Counterweight Position to 2D Screen Badge
+    function updateFloatingWeightBadge() {
+      if (!fallingWeightGroup || !camera) return;
+      const badge = document.getElementById('weight-3d-badge');
+      const pos = fallingWeightGroup.position.clone();
+      pos.y -= 0.18;
+      pos.project(camera);
+
+      if (pos.z > 1) {
+        badge.style.opacity = '0';
+        return;
+      }
+      const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
+      const y = (-(pos.y * 0.5) + 0.5) * window.innerHeight;
+      badge.style.opacity = '1';
+      badge.style.left = `${x - 24}px`;
+      badge.style.top = `${y}px`;
+      badge.textContent = simState.mass_g >= 1000 ? `${(simState.mass_g / 1000).toFixed(1)} kg` : `${Math.round(simState.mass_g)} g`;
+    }
+
+    // -------------------------------------------------------------------------
+    // C. ANIMATION LOOP & TRANSPORT CONTROLS
+    // -------------------------------------------------------------------------
+    let lastTime = performance.now();
+
+    function animateLoop(now) {
+      requestAnimationFrame(animateLoop);
+
+      const dt = Math.min(0.05, (now - lastTime) / 1000);
+      lastTime = now;
+
+      if (simState.isPlaying) {
+        const step = (dt * simState.playback_speed) / simState.drop_time_s;
+        simState.progress += step;
+
+        if (simState.progress >= 1.0) {
+          simState.progress %= 1.0;
+          tipTrailPositions1 = [];
+          tipTrailPositions2 = [];
+        }
+        updateKinematicsAndVisuals();
+      }
+
+      // Smoothly interpolate camera orbit
+      camOrbit.theta += (camOrbit.targetTheta - camOrbit.theta) * 0.1;
+      camOrbit.phi += (camOrbit.targetPhi - camOrbit.phi) * 0.1;
+      camOrbit.radius += (camOrbit.targetRadius - camOrbit.radius) * 0.1;
+      camOrbit.target.lerp(camOrbit.targetLookAt, 0.1);
+
+      camera.position.x = camOrbit.target.x + camOrbit.radius * Math.sin(camOrbit.phi) * Math.sin(camOrbit.theta);
+      camera.position.y = camOrbit.target.y + camOrbit.radius * Math.cos(camOrbit.phi);
+      camera.position.z = camOrbit.target.z + camOrbit.radius * Math.sin(camOrbit.phi) * Math.cos(camOrbit.theta);
+      camera.lookAt(camOrbit.target);
+
+      updateFloatingWeightBadge();
+      renderer.render(scene, camera);
+    }
+
+    function setPlayState(playing) {
+      simState.isPlaying = playing;
+      const icon = document.getElementById('icon-play-pause');
+      const txt = document.getElementById('text-play-pause');
+      if (playing) {
+        icon.className = 'fa-solid fa-pause';
+        txt.textContent = 'PAUSE';
+      } else {
+        icon.className = 'fa-solid fa-play';
+        txt.textContent = 'DROP';
+      }
+    }
+
+    function togglePlayDrop() {
+      if (!simState.isPlaying && simState.progress >= 0.999) {
+        simState.progress = 0;
+        tipTrailPositions1 = [];
+        tipTrailPositions2 = [];
+      }
+      setPlayState(!simState.isPlaying);
+    }
+
+    function resetDrop() {
+      setPlayState(false);
+      simState.progress = 0;
+      tipTrailPositions1 = [];
+      tipTrailPositions2 = [];
+      updateKinematicsAndVisuals();
+    }
+
+    function onScrubProgress(val) {
+      setPlayState(false);
+      simState.progress = parseFloat(val) / 1000;
+      updateKinematicsAndVisuals();
+    }
+
+    function stepFrame(deltaFrames) {
+      setPlayState(false);
+      const totalFrames = Math.max(1, Math.round(simState.drop_time_s * 59.66));
+      const curFrame = Math.round(simState.progress * totalFrames);
+      const nextFrame = Math.max(0, Math.min(totalFrames, curFrame + deltaFrames));
+      simState.progress = nextFrame / totalFrames;
+      updateKinematicsAndVisuals();
+    }
+
+    function setPlaybackSpeed(val) {
+      simState.playback_speed = parseFloat(val);
+    }
+
+    // -------------------------------------------------------------------------
+    // D. CAMERA PRESETS & MOUSE / TOUCH ORBIT HANDLERS
+    // -------------------------------------------------------------------------
+    function setCameraPreset(preset) {
+      ['iso', 'spindle', 'side', 'front'].forEach(p => {
+        const btn = document.getElementById('cam-' + p);
+        if (!btn) return;
+        if (p === preset) {
+          btn.className = 'px-2.5 py-1 rounded-lg bg-cyanaccent/20 text-cyanaccent border border-cyanaccent/40 transition';
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-lg text-slate-300 hover:text-white transition';
+        }
+      });
+
+      if (preset === 'iso') {
+        camOrbit.targetTheta = 0.68;
+        camOrbit.targetPhi = 1.18;
+        camOrbit.targetRadius = 3.1;
+        camOrbit.targetLookAt.set(0.1, 0.85, -0.2);
+      } else if (preset === 'spindle') {
+        camOrbit.targetTheta = 0.42;
+        camOrbit.targetPhi = 1.25;
+        camOrbit.targetRadius = 1.35;
+        camOrbit.targetLookAt.set(0.26, AXLE_Y, 0);
+      } else if (preset === 'side') {
+        camOrbit.targetTheta = 1.57;
+        camOrbit.targetPhi = 1.42;
+        camOrbit.targetRadius = 3.4;
+        camOrbit.targetLookAt.set(0.15, 0.85, -0.45);
+      } else if (preset === 'front') {
+        camOrbit.targetTheta = -1.35;
+        camOrbit.targetPhi = 1.32;
+        camOrbit.targetRadius = 2.6;
+        camOrbit.targetLookAt.set(-0.18, AXLE_Y, 0);
+      }
+    }
+
+    function setupOrbitEvents(domEl) {
+      domEl.addEventListener('pointerdown', e => {
+        camOrbit.isDragging = true;
+        camOrbit.prevX = e.clientX;
+        camOrbit.prevY = e.clientY;
+      });
+
+      window.addEventListener('pointermove', e => {
+        if (!camOrbit.isDragging) return;
+        const dx = e.clientX - camOrbit.prevX;
+        const dy = e.clientY - camOrbit.prevY;
+        camOrbit.prevX = e.clientX;
+        camOrbit.prevY = e.clientY;
+
+        camOrbit.targetTheta -= dx * 0.007;
+        camOrbit.targetPhi = Math.max(0.25, Math.min(Math.PI - 0.15, camOrbit.targetPhi - dy * 0.007));
+      });
+
+      window.addEventListener('pointerup', () => {
+        camOrbit.isDragging = false;
+      });
+
+      domEl.addEventListener('wheel', e => {
+        e.preventDefault();
+        camOrbit.targetRadius = Math.max(0.9, Math.min(7.5, camOrbit.targetRadius + e.deltaY * 0.002));
+      }, { passive: false });
+    }
+
+    // -------------------------------------------------------------------------
+    // E. LOCAL PROMPT PARSING WITH CLOUDFLARE WORKERS AI
+    // -------------------------------------------------------------------------
+    function runQuickPrompt(promptText) {
+      const input = document.getElementById('ai-prompt-input');
+      input.value = promptText;
+      executeAiPrompt(promptText);
+    }
+
+    function handleAiPromptSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('ai-prompt-input');
+      const promptText = input.value.trim();
+      if (!promptText) return;
+      executeAiPrompt(promptText);
+    }
+
+    // 1. Instant Deterministic Local Physics Parser (Zero Latency)
+    function parsePromptLocally(promptText) {
+      const lower = promptText.toLowerCase();
+      const updates = {};
+
+      // Parse Spindle Profile
+      if (lower.includes('parabolic') || lower.includes('parabola')) {
+        updates.spindle_profile = 'parabolic';
+      } else if (lower.includes('exponential') || lower.includes('expon')) {
+        updates.spindle_profile = 'exponential';
+      } else if (lower.includes('linear') || lower.includes('frustum') || lower.includes('baseline') || lower.includes('cone')) {
+        updates.spindle_profile = 'linear';
+      }
+
+      // Parse Counterweight Mass (supports g, kg, lb)
+      const kgMatch = lower.match(/(\d+(?:\.\d+)?)\s*kg\b/);
+      const gMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:g|grams)\b/);
+      const lbMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:lb|lbs|pounds)\b/);
+      if (kgMatch) {
+        updates.mass_g = Math.min(20000, Math.max(20, parseFloat(kgMatch[1]) * 1000));
+      } else if (gMatch) {
+        updates.mass_g = Math.min(20000, Math.max(20, parseFloat(gMatch[1])));
+      } else if (lbMatch) {
+        updates.mass_g = Math.min(20000, Math.max(20, parseFloat(lbMatch[1]) * 453.592));
+      } else if (lower.includes('transonic') || lower.includes('supersonic')) {
+        updates.mass_g = 10000;
+        updates.spindle_profile = 'exponential';
+        updates.r_max_mm = 75;
+        updates.r_min_mm = 5.0;
+        updates.arm_length_mm = 380;
+      }
+
+      // Parse r_max and r_min
+      const rMaxMatch = lower.match(/r_?max\s*(?:to|=|:)?\s*(\d+(?:\.\d+)?)/);
+      const rMinMatch = lower.match(/r_?min\s*(?:to|=|:)?\s*(\d+(?:\.\d+)?)/);
+      if (rMaxMatch) updates.r_max_mm = Math.min(90, Math.max(25, parseFloat(rMaxMatch[1])));
+      if (rMinMatch) updates.r_min_mm = Math.min(24, Math.max(4, parseFloat(rMinMatch[1])));
+
+      // Parse Arm Length
+      const armMatch = lower.match(/(\d+(?:\.\d+)?)\s*mm\s*(?:double-v\s*)?arm/) || lower.match(/arm\s*(?:length)?\s*(?:to|=|:)?\s*(\d+(?:\.\d+)?)/);
+      if (armMatch) updates.arm_length_mm = Math.min(500, Math.max(80, parseFloat(armMatch[1])));
+
+      // Parse Playback Speed
+      const speedMatch = lower.match(/(\d+(?:\.\d+)?)x/);
+      if (speedMatch) {
+        updates.playback_speed = Math.min(1.0, Math.max(0.1, parseFloat(speedMatch[1])));
+      } else if (lower.includes('slow')) {
+        updates.playback_speed = 0.25;
+      } else if (lower.includes('real time') || lower.includes('realtime')) {
+        updates.playback_speed = 1.0;
+      }
+
+      // If baseline 50g/100g/350g requested, restore exact report dimensions
+      if (lower.includes('baseline')) {
+        updates.r_max_mm = 49.0;
+        updates.r_min_mm = 9.7;
+        updates.arm_length_mm = 140.462;
+        updates.drop_height_mm = 920.75;
+        updates.spindle_profile = 'linear';
+      }
+
+      return updates;
+    }
+
+    // Apply variable updates, sync UI drawers, rebuild 3D mesh, and launch drop!
+    function applyVariableUpdates(updates, customInsightText, engineLabel = 'INSTANT NLP') {
+      Object.assign(simState, updates);
+      syncSlidersDrawerUI();
+
+      if (updates.playback_speed !== undefined) {
+        document.getElementById('speed-select').value = String(updates.playback_speed);
+      }
+
+      rebuildDynamicGeometry();
+      simState.progress = 0;
+      setPlayState(true);
+
+      // Build physics insight message
+      const gFrac = (simState.accel_ms2 / 9.81).toFixed(2);
+      const defaultInsight = `<strong class="text-cyanaccent font-mono">${simState.mass_g >= 1000 ? (simState.mass_g/1000).toFixed(1)+'kg' : Math.round(simState.mass_g)+'g'} (${simState.spindle_profile}):</strong> Drop time <span class="font-mono text-white">${simState.drop_time_s.toFixed(3)} s</span> (<span class="font-mono text-emeraldaccent">a = ${simState.accel_ms2.toFixed(2)} m/s² / ${gFrac}g</span>). Double-V arm reaches <span class="font-mono text-cyanaccent">${Math.round(simState.omega_peak)} rad/s</span> (<span class="font-mono text-amberaccent">${simState.v_tip_peak.toFixed(1)} m/s</span> tip speed).`;
+
+      document.getElementById('ai-insight-text').innerHTML = customInsightText || defaultInsight;
+      document.getElementById('ai-engine-tag').textContent = engineLabel;
+    }
+
+    // Send semantic prompt interpretation to the same-origin Cloudflare Worker.
+    async function callPhysicsParser(promptText) {
+      const response = await fetch('/api/parse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: promptText,
+          currentState: {
+            mass_g: simState.mass_g,
+            spindle_profile: simState.spindle_profile,
+            r_max_mm: simState.r_max_mm,
+            r_min_mm: simState.r_min_mm,
+            arm_length_mm: simState.arm_length_mm,
+            drop_height_mm: simState.drop_height_mm,
+            playback_speed: simState.playback_speed
+          }
+        })
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || `AI request failed (${response.status}).`);
+      }
+      return result;
+    }
+
+    async function executeAiPrompt(promptText) {
+      const localUpdates = parsePromptLocally(promptText);
+      if (Object.keys(localUpdates).length) {
+        applyVariableUpdates(localUpdates, null, 'LOCAL + AI');
+      }
+      const icon = document.getElementById('ai-status-icon');
+      const input = document.getElementById('ai-prompt-input');
+      const submitButton = document.getElementById('ai-submit-btn');
+      const engineTag = document.getElementById('ai-engine-tag');
+      icon.className = 'fa-solid fa-circle-notch fa-spin text-cyanaccent shrink-0';
+      submitButton.disabled = true;
+      submitButton.classList.add('opacity-60', 'cursor-wait');
+
+      try {
+        const aiResult = await callPhysicsParser(promptText);
+        const clampedUpdates = {
+          mass_g: Math.min(20000, Math.max(20, aiResult.mass_g ?? simState.mass_g)),
+          spindle_profile: ['linear', 'parabolic', 'exponential'].includes(aiResult.spindle_profile)
+            ? aiResult.spindle_profile
+            : simState.spindle_profile,
+          r_max_mm: Math.min(90, Math.max(25, aiResult.r_max_mm ?? simState.r_max_mm)),
+          r_min_mm: Math.min(24, Math.max(4, aiResult.r_min_mm ?? simState.r_min_mm)),
+          arm_length_mm: Math.min(500, Math.max(80, aiResult.arm_length_mm ?? simState.arm_length_mm)),
+          drop_height_mm: Math.min(1500, Math.max(400, aiResult.drop_height_mm ?? simState.drop_height_mm)),
+          playback_speed: Math.min(1, Math.max(0.1, aiResult.playback_speed ?? simState.playback_speed))
+        };
+        const insight = typeof aiResult.insight === 'string' ? aiResult.insight : '';
+        const safeInsight = insight.replace(/[&<>"']/g, character => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        })[character]);
+        const formattedInsight = `<strong class="text-cyanaccent font-mono">AI Telemetry Analysis:</strong> ${safeInsight || 'Simulation parameters updated.'}`;
+        applyVariableUpdates(clampedUpdates, formattedInsight, 'CLOUDFLARE AI');
+      } catch (error) {
+        document.getElementById('ai-insight-text').textContent =
+          `${localUpdates && Object.keys(localUpdates).length ? 'Local parameter changes applied. ' : ''}AI unavailable: ${error.message}`;
+        engineTag.textContent = Object.keys(localUpdates).length ? 'LOCAL ONLY' : 'AI OFFLINE';
+        icon.className = 'fa-solid fa-triangle-exclamation text-amberaccent shrink-0';
+      } finally {
+        if (engineTag.textContent === 'CLOUDFLARE AI') {
+          icon.className = 'fa-solid fa-sparkles text-cyanaccent shrink-0';
+        }
+        submitButton.disabled = false;
+        submitButton.classList.remove('opacity-60', 'cursor-wait');
+        input.value = '';
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // F. MANUAL SLIDERS DRAWER & MODAL HELPERS
+    // -------------------------------------------------------------------------
+    function toggleSlidersDrawer() {
+      document.getElementById('sliders-drawer').classList.toggle('hidden');
+    }
+
+    function applyManualChange(partialObj) {
+      Object.assign(simState, partialObj);
+      syncSlidersDrawerUI();
+      rebuildDynamicGeometry();
+      simState.progress = 0;
+      setPlayState(true);
+    }
+
+    function syncSlidersDrawerUI() {
+      document.getElementById('lbl-profile').textContent =
+        simState.spindle_profile.charAt(0).toUpperCase() + simState.spindle_profile.slice(1);
+      ['linear', 'parabolic', 'exponential'].forEach(p => {
+        const b = document.getElementById('btn-prof-' + p);
+        if (!b) return;
+        b.className = (p === simState.spindle_profile)
+          ? 'py-1 rounded bg-cyanaccent text-obsidian font-bold text-[10px]'
+          : 'py-1 rounded bg-slate-800 text-slate-300 text-[10px]';
+      });
+
+      document.getElementById('inp-mass').value = simState.mass_g;
+      document.getElementById('lbl-mass').textContent =
+        simState.mass_g >= 1000 ? `${(simState.mass_g / 1000).toFixed(2)} kg` : `${Math.round(simState.mass_g)} g`;
+
+      document.getElementById('inp-rmax').value = simState.r_max_mm;
+      document.getElementById('lbl-rmax').textContent = `${simState.r_max_mm.toFixed(1)} mm`;
+
+      document.getElementById('inp-rmin').value = simState.r_min_mm;
+      document.getElementById('lbl-rmin').textContent = `${simState.r_min_mm.toFixed(1)} mm`;
+
+      document.getElementById('inp-arm').value = simState.arm_length_mm;
+      document.getElementById('lbl-arm').textContent = `${simState.arm_length_mm.toFixed(1)} mm`;
+
+      document.getElementById('inp-height').value = simState.drop_height_mm;
+      document.getElementById('lbl-height').textContent = `${simState.drop_height_mm.toFixed(1)} mm`;
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    function copyCloudflareCode() {
+      const code = document.getElementById('cf-worker-code').innerText;
+      const ta = document.createElement('textarea');
+      ta.value = code;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        const btn = document.getElementById('btn-copy-cf');
+        btn.innerHTML = '<i class="fa-solid fa-check mr-1"></i> Copied!';
+        setTimeout(() => {
+          btn.innerHTML = '<i class="fa-regular fa-copy mr-1"></i> Copy API Example';
+        }, 2000);
+      } catch (e) {}
+      document.body.removeChild(ta);
+    }
+
+    // Window Resize Handler
+    window.addEventListener('resize', () => {
+      if (!camera || !renderer) return;
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start Application on Window Load
+    window.onload = function () {
+      initThreeScene();
+      syncSlidersDrawerUI();
+      requestAnimationFrame(animateLoop);
+    };
+  </script>
+</body>
+</html>

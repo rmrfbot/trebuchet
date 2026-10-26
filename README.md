@@ -1,18 +1,20 @@
 # Trebuchet Project
 
-Initial project structure for the interactive physics trebuchet website. Application code and Cloudflare configuration are intentionally not included in this scaffold.
+Interactive physics trebuchet website with a Cloudflare Worker API for AI prompt interpretation.
 
 ## Structure
 
-- `public/` — frontend files generated separately.
-- `src/worker.js` — planned Cloudflare Worker entry point.
-- `src/routes/` — planned API route handlers.
+- `public/` — website frontend.
+- `src/worker.js` — Cloudflare Worker entry point and prompt API.
+- `src/routes/` — additional API route handlers.
 - `src/services/` — planned AI, experiment, and analysis integrations.
 - `src/validation/` — planned request validation.
 - `src/shared/` — planned shared physics types and calculations.
 - `migrations/` — planned database migrations.
 - `tests/` — planned backend tests.
 
-## Planned platform
+## Cloudflare deployment
 
-Cloudflare Workers for the API, with D1 for experiment records and R2 for uploaded media if needed. Video/image analysis and AI processing will be selected during implementation.
+Install dependencies with `npm install`, preview locally with `npm run dev`, run API tests with `npm test`, and deploy with `npm run deploy`. The Worker serves `public/` and routes `POST /api/parse` through Cloudflare Workers AI. The `AI` binding is declared in `wrangler.toml`; no browser-side AI key is needed.
+
+D1 for experiment records and R2 for uploaded media can be added later. Video/image analysis and OpenCV hosting remain undecided.
